@@ -1,57 +1,62 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+let initialized = false;
+let counter = 0;
+let intervalId;
 
-'use strict'
-
-// chrome.runtime.onInstalled.addListener(function() {
-//   chrome.storage.sync.set({color: '#3aa757'}, function() {
-//     // console.log('The color is green.');
-//   });
-//   chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
-//     chrome.declarativeContent.onPageChanged.addRules([{
-//       conditions: [new chrome.declarativeContent.PageStateMatcher({
-//         pageUrl: {hostEquals: 'developer.chrome.com'},
-//       })],
-//       actions: [new chrome.declarativeContent.ShowPageAction()]
-//     }]);
-//   });
-// });
-
-let initialized = false
-
-chrome.browserAction.onClicked.addListener(function (tab) {
+chrome.browserAction.onClicked.addListener((tab) => {
   if (!initialized) {
     chrome.tabs.executeScript({
-      file: 'master.js',
-    })
+      file: 'contentscript.js',
+    });
     initialized = true;
   }
 
-    chrome.tabs.executeScript({
-      code: 'window.onbeforeunload = function() {\n' +
-      '  return "Master toolbar is initialized. Close tab?";\n' +
-      '}',
-    })
-});
-
-chrome.tabs.onCreated.addListener(function (tab) {
   chrome.tabs.executeScript(tab.id, {
-    file: 'slave.js',
-  })
-
-});
-
-chrome.runtime.onConnect.addListener(function(port) {
-  port.onMessage.addListener(function(msg) {
-    if (msg.text == "Hello from the iframe!") {
-      port.postMessage({text: "Background script received: " + msg.text});
-
-    }
-
+    code: `
+      window.onbeforeunload = function() {
+        return true;
+      }`,
   });
 });
 
+chrome.tabs.onCreated.addListener((tab) => {
+  chrome.tabs.executeScript(tab.id, {
+    file: 'contentscript.js',
+  });
 
+});
 
+chrome.runtime.onConnect.addListener((port) => {
+
+  port.onMessage.addListener((event) => {
+    if (event.type === 'START_CALL' && !intervalId) {
+      setCallDuration(port);
+      intervalId = window.setInterval(setCallDuration, 1000);
+
+    }
+    if (event.type === 'END_CALL' && intervalId) {
+      window.clearInterval(intervalId);
+      intervalId = counter = 0;
+
+    }
+  });
+});
+
+function setCallDuration() {
+
+  let date = new Date();
+  date.setMinutes(0);
+  date.setSeconds(counter);
+
+  let options = {
+    minute: '2-digit',
+    second: '2-digit',
+  };
+
+  chrome.storage.sync.set(
+      {duration: new Intl.DateTimeFormat('en-US', options).format(date)},
+  );
+
+  counter++;
+
+}
 
