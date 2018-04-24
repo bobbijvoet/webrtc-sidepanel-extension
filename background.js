@@ -18,15 +18,40 @@
 //   });
 // });
 
+let initialized = false
+
 chrome.browserAction.onClicked.addListener(function (tab) {
-  chrome.tabs.executeScript({
-    file: 'content.js',
-  })
-})
+  if (!initialized) {
+    chrome.tabs.executeScript({
+      file: 'master.js',
+    })
+    initialized = true;
+  }
+
+    chrome.tabs.executeScript({
+      code: 'window.onbeforeunload = function() {\n' +
+      '  return "Master toolbar is initialized. Close tab?";\n' +
+      '}',
+    })
+});
 
 chrome.tabs.onCreated.addListener(function (tab) {
-
   chrome.tabs.executeScript(tab.id, {
-    file: 'content.js',
+    file: 'slave.js',
   })
-})
+
+});
+
+chrome.runtime.onConnect.addListener(function(port) {
+  port.onMessage.addListener(function(msg) {
+    if (msg.text == "Hello from the iframe!") {
+      port.postMessage({text: "Background script received: " + msg.text});
+
+    }
+
+  });
+});
+
+
+
+
