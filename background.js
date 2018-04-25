@@ -25,11 +25,20 @@ chrome.tabs.onCreated.addListener((tab) => {
 
 });
 
+chrome.tabs.onUpdated.addListener((tab)=>{
+  if(initialized) {
+      chrome.tabs.executeScript(tab.id, {
+          file: 'contentscript.js',
+      });
+  }
+
+});
+
 chrome.runtime.onConnect.addListener((port) => {
 
   port.onMessage.addListener((event) => {
     if (event.type === 'START_CALL' && !intervalId) {
-      setCallDuration(port);
+      setCallDuration();
       intervalId = window.setInterval(setCallDuration, 1000);
 
     }
@@ -52,7 +61,7 @@ function setCallDuration() {
     second: '2-digit',
   };
 
-  chrome.storage.sync.set(
+  chrome.storage.local.set(
       {duration: new Intl.DateTimeFormat('en-US', options).format(date)},
   );
 
